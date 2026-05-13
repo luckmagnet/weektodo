@@ -44,7 +44,6 @@ jobs:
           yarn run electron:build
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          VUE_APP_SENTRY_DNS: ${{ secrets.VUE_APP_SENTRY_DNS }}
 
       - name: build-linux
         if: matrix.os == 'ubuntu-latest'
@@ -52,7 +51,6 @@ jobs:
           yarn run electron:build --win nsis
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          VUE_APP_SENTRY_DNS: ${{ secrets.VUE_APP_SENTRY_DNS }}
 
       - name: build-linux-snap
         if: matrix.os == 'ubuntu-latest'
@@ -60,7 +58,6 @@ jobs:
           yarn electron:build --linux snap -p always
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          VUE_APP_SENTRY_DNS: ${{ secrets.VUE_APP_SENTRY_DNS }}
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
       - name: build-mac
@@ -68,7 +65,6 @@ jobs:
         run: yarn run electron:build
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          VUE_APP_SENTRY_DNS: ${{ secrets.VUE_APP_SENTRY_DNS }}
 
       - name: release
         uses: softprops/action-gh-release@v1

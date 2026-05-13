@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - deploy
+  workflow_dispatch:
 
 jobs:
   release:
@@ -79,4 +80,4 @@ jobs:
             dist_electron//*.pacman
             dist_electron//*.deb
             dist_electron//*.rpm
-            dist_electron//*.pkg
+           

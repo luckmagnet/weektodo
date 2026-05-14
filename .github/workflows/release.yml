@@ -48,19 +48,35 @@ jobs:
         run: |
           DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=never
 
-      - name: List dist contents (debug)
+      - name: Aggregate possible output folders and list contents
         run: |
+          # Common output folders to check
+          CANDIDATES="dist dist_electron out release build"
+          FOUND=0
+          for d in $CANDIDATES; do
+            if [ -d "$d" ]; then
+              echo "Contents of $d:"
+              find "$d" -maxdepth 4 -type f -print || true
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "No candidate output folders found." >&2
+          fi
+          # Print dist specifically for earlier logs
           ls -la dist || true
-          find dist -maxdepth 4 -type f -print || true
 
-      - name: Find installer
+      - name: Find any installer/artifact
         id: find_installer
         run: |
-          FILE=$(find dist -type f -iname '*.exe' -print -quit || true)
+          FILE=$(find dist dist_electron out release build -type f \( -iname '*.exe' -o -iname '*.AppImage' -o -iname '*.dmg' -o -iname '*.deb' \) -print -quit || true)
           if [ -z "$FILE" ]; then
             echo "no_installer=true" >> $GITHUB_OUTPUT
+            echo "::error ::No installer artifact found in dist/dist_electron/out/release/build"
+            exit 1
           else
             echo "installer=$FILE" >> $GITHUB_OUTPUT
+            echo "Found installer: $FILE"
           fi
 
       - name: Create draft GitHub Release
@@ -73,8 +89,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload release asset (if found)
-        if: steps.find_installer.outputs.no_installer != 'true'
+      - name: Upload release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -84,9 +99,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload build artifacts to workflow (optional)
-        if: steps.find_installer.outputs.no_installer != 'true'
+      - name: Upload all build artifacts to workflow (fallback)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: dist/**/*
+          name: all-build-files
+          path: |
+            dist/**/*
+            dist_electron/**/*
+            out/**/*
+            release/**/*
+            build/**/*

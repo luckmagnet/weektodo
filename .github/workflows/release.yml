@@ -44,26 +44,49 @@ jobs:
           which makensis || true
           makensis -VERSION || true
 
-      - name: Build Windows installers (publish to GitHub)
+      - name: Build Windows installers (do not publish from builder)
         run: |
-          DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=always
+          DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=never
 
       - name: List dist contents (debug)
         run: |
           ls -la dist || true
           find dist -maxdepth 4 -type f -print || true
 
-      # Optional: create a draft release and attach any artifacts (fallback)
-      - name: Create draft GitHub Release and attach builds (optional)
+      - name: Find installer
+        id: find_installer
+        run: |
+          FILE=$(find dist -type f -iname '*.exe' -print -quit || true)
+          if [ -z "$FILE" ]; then
+            echo "no_installer=true" >> $GITHUB_OUTPUT
+          else
+            echo "installer=$FILE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create draft GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           name: Build ${{ github.run_number }}
           tag_name: build-${{ github.run_id }}
-          files: |
-            dist/**/*.exe
-            dist/**/*.AppImage
-            dist/**/*.dmg
-            dist/**/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release asset (if found)
+        if: steps.find_installer.outputs.no_installer != 'true'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find_installer.outputs.installer }}
+          asset_name: ${{ steps.find_installer.outputs.installer }}
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts to workflow (optional)
+        if: steps.find_installer.outputs.no_installer != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/**/*

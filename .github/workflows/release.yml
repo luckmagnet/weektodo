@@ -6,6 +6,9 @@ on:
       - deploy
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -47,3 +50,34 @@ jobs:
         run: |
           # Optional: disable publishing in CI, build both archs if desired
           DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=never
+
+      - name: List dist contents (debug)
+        run: |
+          ls -la dist || true
+          find dist -maxdepth 3 -type f -print || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/**/*
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ github.run_id }}
+          name: Build ${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release asset
+        if: steps.create_release.outputs.upload_url != ''
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/your-installer.exe
+          asset_name: your-installer.exe
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

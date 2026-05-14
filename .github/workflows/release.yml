@@ -9,6 +9,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      CI: "true"
 
     steps:
       - name: Check out Git repository
@@ -23,15 +25,25 @@ jobs:
         run: |
           npm install --global yarn
           yarn --version
-          yarn install
+          yarn install --frozen-lockfile
 
-      - name: Install Linux Dependencies
+      - name: Install Linux / Windows build tools
         run: |
           sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y wine wine32
-          sudo apt-get install -y libarchive-tools
+          sudo apt-get update -y
+          # wine and dependencies
+          sudo apt-get install -y --no-install-recommends wine64 wine32 wine-stable
+          # NSIS (provides makensis), unzip for some electron-builder flows, zip tools
+          sudo apt-get install -y --no-install-recommends nsis unzip zip
+          # optional: mono (sometimes required by wine/.NET tooling)
+          sudo apt-get install -y --no-install-recommends mono-runtime
+
+      - name: Show makensis version (debug)
+        run: |
+          which makensis || true
+          makensis -VERSION || true
 
       - name: build-win (produce .exe only)
         run: |
-          yarn run electron:build --win nsis
+          # Optional: disable publishing in CI, build both archs if desired
+          DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=never

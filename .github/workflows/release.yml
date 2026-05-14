@@ -14,9 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: "true"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Check out Git repository
+      - name: Check out repository
         uses: actions/checkout@v3
 
       - name: Install Node.js
@@ -34,11 +35,8 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -y
-          # wine and dependencies
           sudo apt-get install -y --no-install-recommends wine64 wine32 wine-stable
-          # NSIS (provides makensis), unzip for some electron-builder flows, zip tools
           sudo apt-get install -y --no-install-recommends nsis unzip zip
-          # optional: mono (sometimes required by wine/.NET tooling)
           sudo apt-get install -y --no-install-recommends mono-runtime
 
       - name: Show makensis version (debug)
@@ -46,38 +44,26 @@ jobs:
           which makensis || true
           makensis -VERSION || true
 
-      - name: build-win (produce .exe only)
+      - name: Build Windows installers (publish to GitHub)
         run: |
-          # Optional: disable publishing in CI, build both archs if desired
-          DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=never
+          DEBUG=electron-builder yarn run electron:build --win nsis --x64 --ia32 --publish=always
 
       - name: List dist contents (debug)
         run: |
           ls -la dist || true
-          find dist -maxdepth 3 -type f -print || true
+          find dist -maxdepth 4 -type f -print || true
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: dist/**/*
-
-      - name: Create GitHub Release
-        id: create_release
+      # Optional: create a draft release and attach any artifacts (fallback)
+      - name: Create draft GitHub Release and attach builds (optional)
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: build-${{ github.run_id }}
+          draft: true
           name: Build ${{ github.run_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload release asset
-        if: steps.create_release.outputs.upload_url != ''
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/your-installer.exe
-          asset_name: your-installer.exe
-          asset_content_type: application/octet-stream
+          tag_name: build-${{ github.run_id }}
+          files: |
+            dist/**/*.exe
+            dist/**/*.AppImage
+            dist/**/*.dmg
+            dist/**/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
